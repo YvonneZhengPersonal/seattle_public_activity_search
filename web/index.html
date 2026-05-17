@@ -1,0 +1,909 @@
+<!doctype html>
+<html lang="zh-Hans">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>西雅图社区活动 · 按年龄与地图</title>
+    <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f6f7fb;
+        --card: #ffffff;
+        --text: #1c2333;
+        --muted: #5c6578;
+        --border: #e3e6ef;
+        --accent: #1e6bdc;
+        --good: #0b7a52;
+        --warn: #b45309;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial,
+          "Apple Color Emoji", "Segoe UI Emoji";
+        background: var(--bg);
+        color: var(--text);
+      }
+      header {
+        padding: 18px 20px 10px;
+        background: linear-gradient(180deg, #ffffff, var(--bg));
+        border-bottom: 1px solid var(--border);
+      }
+      h1 {
+        margin: 0 0 6px;
+        font-size: 20px;
+        font-weight: 650;
+        letter-spacing: 0.01em;
+      }
+      .sub {
+        margin: 0;
+        font-size: 13px;
+        color: var(--muted);
+        line-height: 1.45;
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(360px, 1.1fr) minmax(340px, 1fr);
+        gap: 14px;
+        padding: 14px 16px 22px;
+        align-items: start;
+      }
+      @media (max-width: 1100px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+      }
+      .panel {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        box-shadow: 0 8px 24px rgba(14, 26, 48, 0.06);
+        overflow: hidden;
+      }
+      .panel__hd {
+        padding: 14px 14px 10px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        align-items: end;
+      }
+      .field {
+        display: grid;
+        gap: 6px;
+        min-width: 160px;
+      }
+      .field--wide {
+        flex: 1 1 260px;
+        min-width: 200px;
+        max-width: 400px;
+      }
+      select {
+        min-width: 180px;
+        max-width: 100%;
+        width: 100%;
+        padding: 8px 10px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: #fff;
+      }
+      .field--types-full {
+        flex: 1 1 100%;
+        min-width: 280px;
+      }
+      .type-filter-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 12px;
+        margin-bottom: 8px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .type-filter-toolbar button.linkish {
+        padding: 2px 8px;
+        font-size: 12px;
+        border: none;
+        background: transparent;
+        color: var(--accent);
+        cursor: pointer;
+        text-decoration: underline;
+      }
+      .type-filter-panel {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: #fafbfd;
+        padding: 8px 10px;
+        max-height: 220px;
+        overflow: auto;
+      }
+      .type-filter-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+        gap: 6px 14px;
+      }
+      .type-filter-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        font-size: 13px;
+        cursor: pointer;
+        user-select: none;
+        line-height: 1.3;
+      }
+      .type-filter-item input {
+        margin-top: 3px;
+        flex-shrink: 0;
+      }
+      label {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      input,
+      select,
+      button {
+        font: inherit;
+      }
+      input[type="number"] {
+        width: 110px;
+        padding: 9px 10px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: #fff;
+      }
+      .row {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      button {
+        border: 1px solid var(--border);
+        background: #fff;
+        padding: 9px 12px;
+        border-radius: 10px;
+        cursor: pointer;
+      }
+      button.primary {
+        border-color: color-mix(in oklab, var(--accent) 55%, var(--border));
+        background: color-mix(in oklab, var(--accent) 10%, #fff);
+        color: #0f2f7a;
+        font-weight: 650;
+      }
+      .stats {
+        margin-left: auto;
+        font-size: 12px;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      .panel__hd--secondary {
+        border-top: 1px dashed var(--border);
+        padding-top: 12px;
+      }
+      .table-scroll {
+        max-height: calc(100vh - 300px);
+        overflow: auto;
+        padding: 0;
+      }
+      @media (max-width: 1100px) {
+        .table-scroll {
+          max-height: none;
+        }
+      }
+      table.act {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+        line-height: 1.35;
+      }
+      table.act th,
+      table.act td {
+        border-bottom: 1px solid var(--border);
+        padding: 10px 12px;
+        text-align: left;
+        vertical-align: top;
+      }
+      table.act th {
+        position: sticky;
+        top: 0;
+        background: #f0f3fa;
+        font-weight: 650;
+        font-size: 12px;
+        color: var(--muted);
+        z-index: 1;
+        box-shadow: 0 1px 0 var(--border);
+      }
+      table.act tr.dim td {
+        opacity: 0.5;
+      }
+      table.act .col-name {
+        font-weight: 650;
+        max-width: 280px;
+      }
+      table.act .col-loc {
+        color: var(--muted);
+        max-width: 200px;
+      }
+      table.act .col-age {
+        font-size: 12px;
+        max-width: 200px;
+      }
+      table.act .col-time {
+        font-size: 12px;
+        max-width: 220px;
+      }
+      table.act .match-yes {
+        color: var(--good);
+        font-weight: 700;
+      }
+      table.act .match-no {
+        color: var(--warn);
+      }
+      table.act details.times {
+        margin-top: 4px;
+        font-size: 11.5px;
+        color: var(--muted);
+      }
+      table.act details.times > summary {
+        cursor: pointer;
+        user-select: none;
+      }
+      table.act .slot-line {
+        margin: 6px 0 0;
+        padding: 6px 8px;
+        background: #f7f8fc;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        font-size: 12px;
+        color: #2a3142;
+      }
+      .banner-err {
+        margin: 12px;
+        padding: 12px 14px;
+        background: #fff5f5;
+        border: 1px solid #f1baba;
+        border-radius: 12px;
+        color: #7a1f1f;
+        font-size: 13px;
+      }
+      .mapwrap {
+        height: calc(100vh - 170px);
+        min-height: 420px;
+      }
+      @media (max-width: 1100px) {
+        .mapwrap {
+          height: 420px;
+        }
+      }
+      .hint {
+        padding: 10px 14px;
+        font-size: 12px;
+        color: var(--muted);
+        border-top: 1px solid var(--border);
+        background: #fbfcff;
+      }
+      a {
+        color: var(--accent);
+      }
+      code {
+        font-size: 12px;
+        background: #eef1f8;
+        padding: 2px 6px;
+        border-radius: 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>西雅图 Parks 社区活动浏览器</h1>
+      <p class="sub">
+        数据来自官方站点
+        <a href="https://anc.apm.activecommunities.com/seattle/activity/search?viewMode=list"
+          >Seattle Active Communities</a
+        >。同一项目在同一地点、多个时间段会合并为一行；展开可查看全部时段。
+      </p>
+    </header>
+
+    <div class="layout">
+      <section class="panel">
+        <div class="panel__hd">
+          <div class="field">
+            <label for="ageYears">孩子年龄（岁）</label>
+            <div class="row">
+              <input id="ageYears" type="number" min="0" max="120" step="0.1" value="7" />
+              <button class="primary" id="applyBtn" type="button">更新筛选</button>
+            </div>
+          </div>
+          <div class="field">
+            <label for="mode">表格内容</label>
+            <select id="mode">
+              <option value="match" selected>仅年龄匹配</option>
+              <option value="all">全部（不匹配变淡）</option>
+            </select>
+          </div>
+          <div class="stats" id="stats"></div>
+        </div>
+        <div class="panel__hd panel__hd--secondary">
+          <div class="field field--types-full">
+            <label class="type-filter-toolbar">
+              <span><strong>活动类型（多选）</strong> · 不勾选＝不限</span>
+              <button type="button" class="linkish" id="typeSelectAll">全选</button>
+              <button type="button" class="linkish" id="typeClear">清空</button>
+            </label>
+            <div id="filterTypePanel" class="type-filter-panel" title="根据活动名称关键词归类，非官方分类"></div>
+          </div>
+          <div class="field field--wide">
+            <label for="filterLocation">地点</label>
+            <select id="filterLocation">
+              <option value="">全部地点</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-scroll" id="tableHost"></div>
+        <div class="hint" id="dataHint"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel__hd">
+          <div class="field" style="min-width: 240px">
+            <label>地图</label>
+            <div class="row">
+              <button id="fitBtn" type="button">缩放到全部可见点</button>
+            </div>
+          </div>
+          <div class="stats" id="mapStats"></div>
+        </div>
+        <div id="map" class="mapwrap"></div>
+        <div class="hint" id="mapHint">
+          地图脚本已内置在页面同目录的 <code>vendor/leaflet/</code>，无需外网加载 JS。底图仍使用
+          OpenStreetMap（需要网络）；若底图空白，请检查网络或使用 VPN。
+        </div>
+      </section>
+    </div>
+
+    <script src="vendor/leaflet/leaflet.js"></script>
+    <script>
+      /** 注意：不要在文件顶部使用 L——CDN 失败时会导致整页脚本崩溃、数据无法加载。 */
+      const state = {
+        data: null,
+        loadError: null,
+        map: null,
+        group: null,
+        markers: [],
+      };
+
+      /** 按名称关键词推断类型；靠前的规则优先。音乐类在舞蹈前，避免 “band” 等与舞蹈混淆时用更具体的舞蹈词命中健身类。 */
+      const ACTIVITY_TYPE_RULES = [
+        {
+          id: "music",
+          label: "音乐 / 戏剧",
+          test: (n) =>
+            /music|choir|orchestra|theater|theatre|drama|acting|\bsing(ing)?\b|\bband\b|marching|brass|woodwind|instrumental|symphony|recital/i.test(
+              n
+            ),
+        },
+        {
+          id: "fitness",
+          label: "健身 / 舞蹈 / 瑜伽",
+          test: (n) =>
+            /fitness|yoga|zumba|dance|ballet|ballroom|tap\s+dance|tap\b(?!\s*water)|hip\s*hop|contemporary|lyrical|jazz\s*dance|jazzercise|modern\s+dance|creative\s+dance|creative\s+ballet|pli[eé]|barre|pilates|tai chi|taiji|aerobic|strength|conditioning|workout|movement(?!\s*(?:break|law))/i.test(
+              n
+            ),
+        },
+        {
+          id: "arts",
+          label: "美术 / 手工",
+          test: (n) =>
+            /\bart\b|fine art|visual art|craft|paint|draw(ing)?|sketch|pottery|ceramic|sew|knit|mosaic|sculpt|weaving|caligraphy|calligraphy|origami|printmak/i.test(
+              n
+            ) && !/ballet|dance|movement/i.test(n),
+        },
+        {
+          id: "technology",
+          label: "科技 / STEM",
+          test: (n) => /robot|coding|programming|\bSTEM\b|minecraft|science\b|computer\b|LEGO/i.test(n),
+        },
+        { id: "cooking", label: "烹饪", test: (n) => /cook|baking|kitchen|culinary|chefs?\b/i.test(n) },
+        {
+          id: "aquatics",
+          label: "水上 / 游泳",
+          test: (n) => /swim|pool|aqua(?!rium)|water polo|diving|snorkel|lifeguard|wading|splash/i.test(n),
+        },
+        {
+          id: "boating",
+          label: "划船 / 艇类",
+          test: (n) => /rowing|sailing|kayak|canoe|boating|crew|shell\b|sculling/i.test(n),
+        },
+        { id: "tennis", label: "网球 / 匹克球", test: (n) => /tennis|pickleball|pickle\b/i.test(n) },
+        {
+          id: "skate",
+          label: "滑冰 / 轮滑 / 冰球",
+          test: (n) => /skate|skating|hockey|curling|figure skate/i.test(n),
+        },
+        {
+          id: "martial",
+          label: "武术 / 格斗",
+          test: (n) => /karate|judo|taekwondo|kung|martial|jiu|wrestling|boxing|fencing|aikido/i.test(n),
+        },
+        {
+          id: "sports",
+          label: "球类 / 田径",
+          test: (n) =>
+            /basketball|soccer|football|baseball|softball|volleyball|golf\b|track\b|lacrosse|rugby|ultimate|kickball|sport(s)? league/i.test(
+              n
+            ),
+        },
+        {
+          id: "nature",
+          label: "自然 / 户外",
+          test: (n) => /nature|outdoor|hike|bird|forest|environmental|trail\b|parkour/i.test(n),
+        },
+        { id: "camps", label: "营队", test: (n) => /\bcamp\b|summer camp|day camp|adventure camp/i.test(n) },
+        {
+          id: "afterschool",
+          label: "课后照顾",
+          test: (n) => /after school|after-school|out of school/i.test(n),
+        },
+        {
+          id: "earlychild",
+          label: "学龄前 / 婴幼儿",
+          test: (n) => /preschool|pre-school|toddler|\btot\b|parent.{0,8}child|little ones/i.test(n),
+        },
+      ];
+
+      function inferActivityType(name) {
+        const n = name || "";
+        for (const r of ACTIVITY_TYPE_RULES) {
+          if (r.test(n)) return r.id;
+        }
+        return "other";
+      }
+
+      function activityTypeLabel(id) {
+        const r = ACTIVITY_TYPE_RULES.find((x) => x.id === id);
+        return r ? r.label : "其它";
+      }
+
+      function getSelectedActivityTypes() {
+        const panel = document.getElementById("filterTypePanel");
+        if (!panel) return [];
+        return [...panel.querySelectorAll('input[type="checkbox"]')]
+          .filter((c) => c.checked)
+          .map((c) => c.value);
+      }
+
+      function buildTypeFilterCheckboxes() {
+        const panel = document.getElementById("filterTypePanel");
+        if (!panel) return;
+        const prev = new Set(
+          [...panel.querySelectorAll('input[type="checkbox"]')].filter((c) => c.checked).map((c) => c.value)
+        );
+        panel.innerHTML = "";
+        const grid = document.createElement("div");
+        grid.className = "type-filter-grid";
+        for (const r of ACTIVITY_TYPE_RULES) {
+          const lab = document.createElement("label");
+          lab.className = "type-filter-item";
+          const cb = document.createElement("input");
+          cb.type = "checkbox";
+          cb.value = r.id;
+          cb.checked = prev.has(r.id);
+          cb.addEventListener("change", refresh);
+          const span = document.createElement("span");
+          span.textContent = r.label;
+          lab.appendChild(cb);
+          lab.appendChild(span);
+          grid.appendChild(lab);
+        }
+        {
+          const lab = document.createElement("label");
+          lab.className = "type-filter-item";
+          const cb = document.createElement("input");
+          cb.type = "checkbox";
+          cb.value = "other";
+          cb.checked = prev.has("other");
+          cb.addEventListener("change", refresh);
+          const span = document.createElement("span");
+          span.textContent = "其它（未归类）";
+          lab.appendChild(cb);
+          lab.appendChild(span);
+          grid.appendChild(lab);
+        }
+        panel.appendChild(grid);
+      }
+
+      function populateLocationFilterOptions() {
+        const sel = document.getElementById("filterLocation");
+        const keep = sel.value;
+        const locs = [
+          ...new Set((state.data.activities || []).map((g) => (g.location || "").trim()).filter(Boolean)),
+        ];
+        locs.sort((a, b) => a.localeCompare(b, "en"));
+        sel.innerHTML = '<option value="">全部地点</option>';
+        for (const loc of locs) {
+          const o = document.createElement("option");
+          o.value = loc;
+          o.textContent = loc;
+          sel.appendChild(o);
+        }
+        if ([...sel.options].some((o) => o.value === keep)) sel.value = keep;
+      }
+
+      function passesFacetFilters(g) {
+        const selectedTypes = getSelectedActivityTypes();
+        const loc = document.getElementById("filterLocation").value;
+        if (loc && (g.location || "").trim() !== loc) return false;
+        if (selectedTypes.length && !selectedTypes.includes(inferActivityType(g.name))) return false;
+        return true;
+      }
+
+      function num(x, def) {
+        const n = Number(x);
+        return Number.isFinite(n) ? n : def;
+      }
+
+      /**
+       * 官方 API 里常有 age_min_year / age_max_year 全为 0，真实规则只在 age_description 英文里。
+       * 这里把数字字段 + 文案 + 活动名称（含 18+、Adult）综合成有效区间。
+       * 上界为「开区间」：age < maxExclusive（与「less than 18」= maxExclusive 18 一致）。
+       */
+      function getEffectiveAgeBounds(g) {
+        const name = g.name || "";
+        const blob = [g.age_description || "", g.ages || "", name].join(" ");
+        const loWeeks = num(g.age_min_week, 0) / 52;
+        let minYears = num(g.age_min_year, 0);
+        let maxExclusive = null;
+
+        const hiY = num(g.age_max_year, 0);
+        const hiM = num(g.age_max_month, 0);
+        const hiW = num(g.age_max_week, 0);
+        if (hiY > 0 || hiM > 0 || hiW > 0) {
+          maxExclusive = hiY + hiM / 12 + hiW / 52;
+        }
+
+        let adultFloor = 0;
+        if (/\badult\b/i.test(name)) {
+          adultFloor = 18;
+        }
+        if (/\b18\s*\+/i.test(blob) || /\b18\s*yrs?\s*\+/i.test(blob)) {
+          adultFloor = 18;
+        }
+        if (/\b21\s*\+/i.test(blob)) {
+          adultFloor = Math.max(adultFloor, 21);
+        }
+
+        const atLeastCaps = blob.match(/\bat\s+least\s+(\d+)\b/gi) || [];
+        for (const seg of atLeastCaps) {
+          const m = seg.match(/(\d+)/);
+          if (m) minYears = Math.max(minYears, num(m[1], 0));
+        }
+
+        let m = blob.match(/\b(\d+)\s*(?:yrs?|years?)\s*\+/i);
+        if (m) minYears = Math.max(minYears, num(m[1], 0));
+
+        m = blob.match(/\b(\d+)\s+and\s+up\b/i);
+        if (m) minYears = Math.max(minYears, num(m[1], 0));
+
+        m = name.match(/\b(\d+)\s*\+(?!\/)/);
+        if (m) minYears = Math.max(minYears, num(m[1], 0));
+
+        const ltNums = [];
+        for (const mm of blob.matchAll(/\bless\s+than\s+(\d+)\b/gi)) {
+          ltNums.push(num(mm[1], NaN));
+        }
+        for (const mm of blob.matchAll(/\bunder\s+(\d+)\b/gi)) {
+          ltNums.push(num(mm[1], NaN));
+        }
+        const finiteLt = ltNums.filter((x) => Number.isFinite(x));
+        if (finiteLt.length) {
+          const tmax = Math.min(...finiteLt);
+          maxExclusive = maxExclusive == null ? tmax : Math.min(maxExclusive, tmax);
+        }
+
+        minYears = Math.max(minYears, adultFloor);
+
+        const mo = num(g.age_min_month, 0) / 12;
+        const lo = minYears + mo + loWeeks;
+
+        return { lo, maxExclusive };
+      }
+
+      function ageMatches(ageYears, g) {
+        if (!Number.isFinite(ageYears)) return false;
+        const { lo, maxExclusive } = getEffectiveAgeBounds(g);
+        if (ageYears + 1e-9 < lo) return false;
+        if (maxExclusive != null && maxExclusive > 0 && ageYears >= maxExclusive - 1e-9) return false;
+        return true;
+      }
+
+      function fmtAgeRule(g) {
+        return (g.age_description || g.ages || "—").replace(/\s+/g, " ").trim();
+      }
+
+      function escapeHtml(s) {
+        return String(s)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#039;");
+      }
+
+      function summarizeFirstSlot(slots) {
+        if (!slots || !slots.length) return "—";
+        const s = slots[0];
+        const bits = [s.days_of_week, s.time_range].filter(Boolean);
+        let t = bits.join(" · ") || "—";
+        const dr = s.date_range_description || s.date_range;
+        if (dr) t += " · " + dr;
+        return t;
+      }
+
+      function buildSlotsDetailsHtml(g) {
+        const parts = [];
+        let i = 0;
+        for (const s of g.slots || []) {
+          i += 1;
+          const bits = [];
+          if (s.activity_number) bits.push("#" + escapeHtml(s.activity_number));
+          if (s.days_of_week) bits.push(escapeHtml(s.days_of_week));
+          if (s.time_range) bits.push(escapeHtml(s.time_range));
+          const dr = s.date_range_description || s.date_range;
+          if (dr) bits.push(escapeHtml(dr));
+          if (s.openings) bits.push("名额 " + escapeHtml(s.openings));
+          const link = s.detail_url
+            ? ' <a href="' + escapeHtml(s.detail_url) + '" target="_blank" rel="noopener">详情</a>'
+            : "";
+          parts.push(
+            '<div class="slot-line"><b>班次 ' +
+              i +
+              "</b> · " +
+              bits.join(" · ") +
+              link +
+              "</div>"
+          );
+        }
+        return parts.join("");
+      }
+
+      function renderTable() {
+        const host = document.getElementById("tableHost");
+        const statsEl = document.getElementById("stats");
+        const hintEl = document.getElementById("dataHint");
+
+        if (state.loadError) {
+          host.innerHTML =
+            '<div class="banner-err"><strong>数据未加载</strong><br />' +
+            escapeHtml(state.loadError) +
+            "</div>";
+          statsEl.textContent = "";
+          hintEl.textContent = "";
+          return;
+        }
+
+        if (!state.data) {
+          host.innerHTML = '<div class="banner-err">正在加载 data.json …</div>';
+          statsEl.textContent = "";
+          hintEl.textContent = "";
+          return;
+        }
+
+        const ageYears = Number(document.getElementById("ageYears").value || "0");
+        const mode = document.getElementById("mode").value;
+
+        const activities = state.data.activities || [];
+        const scoped = activities.filter(passesFacetFilters);
+        const matchesScoped = scoped.filter((g) => ageMatches(ageYears, g));
+        const rows = mode === "match" ? matchesScoped : scoped;
+
+        const dedupN = state.data.deduped_group_count ?? activities.length;
+        const geoN = state.data.groups_with_coordinates;
+        const geoBit =
+          geoN != null && dedupN
+            ? ` · 地图可定位 <b>${escapeHtml(String(geoN))}</b> / ${escapeHtml(String(dedupN))} 组`
+            : "";
+        hintEl.innerHTML = `抓取时间：<b>${escapeHtml(
+          state.data.fetched_at || "未知"
+        )}</b> · 原始 <b>${escapeHtml(String(state.data.raw_item_count ?? ""))}</b> · 合并 <b>${escapeHtml(
+          String(dedupN)
+        )}</b>${geoBit}`;
+
+        statsEl.textContent =
+          "表格：" +
+          rows.length +
+          " 条（在类型/地点筛选后；其中年龄匹配 " +
+          matchesScoped.length +
+          " / " +
+          scoped.length +
+          "）";
+
+        const detailNote =
+          (g) =>
+            '<details class="times"><summary>全部时段（' +
+            (g.slots?.length || 0) +
+            "）</summary>" +
+            buildSlotsDetailsHtml(g) +
+            "</details>";
+
+        let tbody = "";
+        for (const g of rows) {
+          const ok = ageMatches(ageYears, g);
+          const tid = inferActivityType(g.name);
+          const matchCell = ok
+            ? '<span class="match-yes">✓</span>'
+            : '<span class="match-no">—</span>';
+          const primaryLink =
+            g.slots && g.slots[0] && g.slots[0].detail_url
+              ? '<a href="' + escapeHtml(g.slots[0].detail_url) + '" target="_blank" rel="noopener">链接</a>'
+              : "—";
+          const mapOk =
+            typeof g.lat === "number" && typeof g.lon === "number"
+              ? '<span class="match-yes">有</span>'
+              : '<span class="match-no">无</span>';
+
+          tbody += "<tr" + (mode === "all" && !ok ? ' class="dim"' : "") + ">";
+          tbody += "<td>" + matchCell + "</td>";
+          tbody += '<td class="col-type">' + escapeHtml(activityTypeLabel(tid)) + "</td>";
+          tbody += '<td class="col-name">' + escapeHtml(g.name || "—") + "</td>";
+          tbody += '<td class="col-loc">' + escapeHtml(g.location || "—") + "</td>";
+          tbody += '<td class="col-age">' + escapeHtml(fmtAgeRule(g)) + "</td>";
+          tbody += '<td class="col-time">' + escapeHtml(summarizeFirstSlot(g.slots)) + "</td>";
+          tbody += "<td>" + mapOk + "</td>";
+          tbody += "<td>" + primaryLink + "</td>";
+          tbody += "<td>" + detailNote(g) + "</td>";
+          tbody += "</tr>";
+        }
+
+        host.innerHTML =
+          "<table class='act'><thead><tr>" +
+          "<th>匹配</th><th>类型</th><th>活动</th><th>地点</th><th>年龄</th><th>时间摘要</th><th>地图</th><th>详情</th><th>其它时段</th>" +
+          "</tr></thead><tbody>" +
+          tbody +
+          "</tbody></table>";
+      }
+
+      function ensureLeafletOrHint() {
+        if (typeof L !== "undefined") return true;
+        const el = document.getElementById("map");
+        el.innerHTML =
+          '<div class="banner-err" style="margin:12px">地图库加载失败：请确认 <code>vendor/leaflet/leaflet.js</code> 与页面在同一站点路径下（勿只拷贝单个 html 文件）。</div>';
+        document.getElementById("mapStats").textContent = "地图不可用";
+        return false;
+      }
+
+      function renderMap() {
+        const mapStats = document.getElementById("mapStats");
+        if (!ensureLeafletOrHint()) return;
+
+        if (!state.map) {
+          state.map = L.map("map", { scrollWheelZoom: true });
+          L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            maxZoom: 19,
+            attribution: "&copy; OpenStreetMap contributors",
+          }).addTo(state.map);
+          state.group = L.layerGroup();
+          state.group.addTo(state.map);
+          state.map.setView([47.62, -122.35], 11);
+        }
+
+        state.group.clearLayers();
+        state.markers = [];
+
+        if (!state.data) {
+          mapStats.textContent = "";
+          return;
+        }
+
+        const ageYears = Number(document.getElementById("ageYears").value || "0");
+        const mode = document.getElementById("mode").value;
+        const activities = state.data.activities || [];
+        const scoped = activities.filter(passesFacetFilters);
+        const visible = scoped.filter((g) => (mode === "match" ? ageMatches(ageYears, g) : true));
+
+        let plotted = 0;
+        for (const g of visible) {
+          if (typeof g.lat !== "number" || typeof g.lon !== "number") continue;
+          plotted++;
+          const matched = ageMatches(ageYears, g);
+          const m = L.circleMarker([g.lat, g.lon], {
+            radius: 7,
+            color: matched ? "#1e6bdc" : "#9aa3b5",
+            weight: 2,
+            fillColor: matched ? "#5aa7ff" : "#cfd6e6",
+            fillOpacity: 0.88,
+          });
+          const slots = (g.slots || [])
+            .map((s) => {
+              const bits = [s.days_of_week, s.time_range].filter(Boolean).join(" ");
+              return bits ? "<li>" + escapeHtml(bits) + "</li>" : "";
+            })
+            .join("");
+          m.bindPopup(
+            "<div style=\"min-width:220px\"><div style=\"font-weight:700;margin-bottom:6px\">" +
+              escapeHtml(g.name) +
+              '</div><div style="color:#666;font-size:12px;margin-bottom:4px">' +
+              escapeHtml(activityTypeLabel(inferActivityType(g.name))) +
+              '</div><div style="color:#444;font-size:13px;margin-bottom:6px">' +
+              escapeHtml(g.location || "") +
+              '</div><div style="font-size:12px;margin-bottom:6px">' +
+              escapeHtml(fmtAgeRule(g)) +
+              '</div><ul style="padding-left:18px;margin:0;font-size:12px">' +
+              slots +
+              "</ul></div>"
+          );
+          m.addTo(state.group);
+          state.markers.push(m);
+        }
+
+        mapStats.textContent =
+          (mode === "match" ? "地图：年龄段内 " : "地图：筛选结果中（浅色为年龄不匹配） ") + plotted + " 个点";
+
+        const btn = document.getElementById("fitBtn");
+        btn.onclick = () => {
+          const latlngs = state.markers.map((x) => x.getLatLng());
+          if (!latlngs.length) return;
+          state.map.fitBounds(L.latLngBounds(latlngs), { padding: [26, 26] });
+        };
+
+        if (state.markers.length && !state._didFitOnce) {
+          state._didFitOnce = true;
+          btn.click();
+        }
+      }
+
+      function refresh() {
+        renderTable();
+        renderMap();
+      }
+
+      async function loadData() {
+        state.loadError = null;
+        state.data = null;
+        try {
+          const res = await fetch("data.json", { cache: "no-store" });
+          if (!res.ok) {
+            throw new Error("HTTP " + res.status + " — 请确认 web 目录下有 data.json，并用 http:// 打开本页（不要直接用 file://）。");
+          }
+          const text = await res.text();
+          state.data = JSON.parse(text);
+          if (!state.data.activities || !Array.isArray(state.data.activities)) {
+            throw new Error("data.json 格式异常：缺少 activities 数组。");
+          }
+          state._didFitOnce = false;
+          buildTypeFilterCheckboxes();
+          populateLocationFilterOptions();
+        } catch (e) {
+          state.data = null;
+          state.loadError =
+            (e && e.message) ||
+            String(e) ||
+            "未知错误。若使用 file:// 打开页面，浏览器通常会禁止读取 data.json；请用 python -m http.server 在 web 目录启动后访问。";
+          console.error(e);
+        }
+        refresh();
+      }
+
+      document.getElementById("applyBtn").addEventListener("click", refresh);
+      document.getElementById("mode").addEventListener("change", refresh);
+      document.getElementById("ageYears").addEventListener("change", refresh);
+      document.getElementById("filterLocation").addEventListener("change", refresh);
+      document.getElementById("typeSelectAll").addEventListener("click", () => {
+        document.querySelectorAll("#filterTypePanel input[type=checkbox]").forEach((c) => {
+          c.checked = true;
+        });
+        refresh();
+      });
+      document.getElementById("typeClear").addEventListener("click", () => {
+        document.querySelectorAll("#filterTypePanel input[type=checkbox]").forEach((c) => {
+          c.checked = false;
+        });
+        refresh();
+      });
+
+      loadData();
+    </script>
+  </body>
+</html>
